@@ -1,4 +1,9 @@
 {
+  "compilerOptions": {
+    "types": [
+      "vuetify"
+    ]
+  },
   "files": [],
   "references": [
     {
