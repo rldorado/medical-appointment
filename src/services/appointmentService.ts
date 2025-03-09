@@ -1,7 +1,40 @@
+/**
+ * Appointment Service
+ * 
+ * This service handles all API interactions related to appointments,
+ * including fetching available slots and booking appointments.
+ */
 import type { BookingRequest, BookingResponse } from "@/types/Booking";
-import type { WeeklySlots } from "@/types/Slot";
+import type { WeeklySlots, Slot } from "@/types/Slot";
+import { 
+  formatDateToYYYYMMDD, 
+  getNextSevenDays 
+} from "@/utils/dateUtils";
+import { API_CONFIG } from "@/config/api";
 
-const API_BASE_URL = 'https://draliatest.azurewebsites.net/api/availability';
+/**
+ * Group slots by date
+ * @param slots Array of slots from API
+ * @returns Record with dates as keys and arrays of slots as values
+ */
+const groupSlotsByDate = (slots: any[]): Record<string, Slot[]> => {
+  return slots.reduce((acc: Record<string, Slot[]>, slot: any) => {
+    // Extract date from Start (format: 2025-03-03T09:00:00)
+    const date = slot.Start ? slot.Start.split('T')[0] : '';
+    
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    
+    acc[date].push({
+      start: slot.Start || '',
+      end: slot.End || '',
+      available: !slot.Taken
+    });
+    
+    return acc;
+  }, {});
+};
 
 /**
  * Fetch weekly slots from the API
@@ -11,7 +44,7 @@ const API_BASE_URL = 'https://draliatest.azurewebsites.net/api/availability';
 export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
   try {
     console.log(`Fetching slots for date: ${date}`);
-    const url = `${API_BASE_URL}/GetWeeklySlots/${date}`;
+    const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.WEEKLY_SLOTS}${date}`;
     console.log(`API URL: ${url}`);
     
     const response = await fetch(url);
@@ -31,35 +64,33 @@ export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
       return [data];
     }
     
-    // Validate and sanitize the response data
-    // Each element is an available slot with "Start" and "End" times.
-    const groupedByDate = data.reduce((acc: Record<string, any[]>, slot: any) => {
-      // Extract date from Start (format: 2025-03-03T09:00:00)
-      const date = slot.Start ? slot.Start.split('T')[0] : '';
-      
-      if (!acc[date]) {
-        acc[date] = [];
-      }
-      
-      acc[date].push({
-        start: slot.Start || '',
-        end: slot.End || '',
-        available: true
-      });
-      
-      return acc;
-    }, {});
+    // Group slots by date
+    const groupedByDate = groupSlotsByDate(data);
     
-    // Turn to WeeklySlots
-    return Object.entries(groupedByDate).map(([date, slots]) => ({
-      date,
-      slots
-    }));
+    // Generate slots for all 7 days of the week
+    // Parse the date string to a Date object
+    const startDate = new Date(
+      parseInt(date.substring(0, 4)),
+      parseInt(date.substring(4, 6)) - 1,
+      parseInt(date.substring(6, 8))
+    );
+    
+    // Get the next 7 days
+    const weekDates = getNextSevenDays(startDate);
+    
+    // Map dates to WeeklySlots format
+    return weekDates.map(date => {
+      const dateStr = formatDateToYYYYMMDD(date);
+      return {
+        date: dateStr,
+        slots: groupedByDate[dateStr] || []
+      };
+    });
   } catch (error) {
     console.error('Error fetching weekly slots:', error);
     throw error;
   }
-}
+};
 
 /**
  * Book a slot
@@ -69,7 +100,7 @@ export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
 export const bookSlot = async (bookingData: BookingRequest): Promise<BookingResponse> => {
   try {
     console.log('Booking slot with data:', bookingData);
-    const response = await fetch(`${API_BASE_URL}/BookSlot`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.BOOK_SLOT}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -77,13 +108,14 @@ export const bookSlot = async (bookingData: BookingRequest): Promise<BookingResp
       body: JSON.stringify(bookingData),
     });
     
+    // Check if response is ok
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`API error ${response.status}: ${errorText}`);
       throw new Error(`API error ${response.status}: ${errorText}`);
     }
     
-    // Check if response is empty (Success)
+    // Check if response is empty
     const responseText = await response.text();
     if (!responseText || responseText.trim() === '') {
       console.log('Empty response from server, assuming success');
@@ -110,4 +142,4 @@ export const bookSlot = async (bookingData: BookingRequest): Promise<BookingResp
     console.error('Error booking slot:', error);
     throw error;
   }
-}
+};

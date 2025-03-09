@@ -14,6 +14,18 @@ export const formatDateForApi = (date: Date): string => {
 }
 
 /**
+ * Format date to yyyy-MM-dd format
+ * @param date Date to format
+ * @returns Formatted date string (yyyy-MM-dd)
+ */
+export const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Format date to display format (e.g., Friday, May 21)
  * @param dateStr Date string
  * @returns Formatted date string
@@ -38,6 +50,20 @@ export const formatTimeForDisplay = (dateTimeStr: string): string => {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true
+  });
+}
+
+/**
+ * Format time to 24-hour format (e.g., 14:30)
+ * @param dateTimeStr Date time string
+ * @returns Formatted time string in 24-hour format
+ */
+const formatTimeFor24HourDisplay = (dateTimeStr: string): string => {
+  const date = new Date(dateTimeStr);
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
   });
 }
 
@@ -95,4 +121,45 @@ export const getMondayOfWeek = (date: Date): Date => {
   const diff = day === 0 ? 6 : day - 1; // If Sunday (0), then it's 6 days from Monday, otherwise day - 1
   result.setDate(result.getDate() - diff);
   return result;
+}
+
+/**
+ * Format a date for calendar display, showing 'Today', 'Tomorrow', or a formatted date
+ * @param date Date to format
+ * @returns Formatted string for calendar display
+ */
+export const formatCalendarDateLabel = (date: Date): string => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const dateToCheck = new Date(date);
+  dateToCheck.setHours(0, 0, 0, 0);
+  
+  if (dateToCheck.getTime() === today.getTime()) {
+    return "Today";
+  }
+  if (dateToCheck.getTime() === tomorrow.getTime()) {
+    return "Tomorrow";
+  }
+  
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+/**
+ * Format time based on user preference (12h or 24h)
+ * @param timeString Time string to format
+ * @param use24Hour Whether to use 24-hour format
+ * @returns Formatted time string
+ */
+export const formatTimeByPreference = (timeString: string, use24Hour: boolean): string => {
+  return use24Hour 
+    ? formatTimeFor24HourDisplay(timeString)
+    : formatTimeForDisplay(timeString);
 }

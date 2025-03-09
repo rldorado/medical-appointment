@@ -1,11 +1,11 @@
 <template>
   <v-card variant="flat" class="bg-transparent ma-4">
-    <v-card-title class="text-h5 d-flex align-center">
-      Confirm your appointment with <strong>{{ currentAppointment.doctor }}</strong>
+    <v-card-title class="text-h6 d-flex align-center">
+      Confirm your appointment with&nbsp;<strong>{{ appointmentStore.currentAppointment.doctor }}</strong>
     </v-card-title>
 
     <v-card-text>
-      <v-alert v-if="errorMessage" type="error" class="mb-4">
+      <v-alert v-if="errorMessage" type="error" class="mb-4" closable @click:close="clearError">
         {{ errorMessage }}
       </v-alert>
 
@@ -16,35 +16,50 @@
         class="mb-4"
       ></v-progress-linear>
 
-      <AppointmentInfo 
-        :doctor="currentAppointment.doctor" 
-        :appointment-date="currentAppointment.formattedDate" 
-      />
+      <AppointmentInfo :appointment-date="appointmentStore.currentAppointment.formattedDate" />
 
-      <div v-if="isReschedulingSpinner" class="d-flex flex-column align-center my-4">
+      <div v-if="appointmentStore.isReschedulingSpinner" class="d-flex flex-column align-center my-4">
         <v-progress-circular
           indeterminate
           color="primary"
           size="64"
         ></v-progress-circular>
         <div class="mt-4 text-body-1">
-          <span class="text-decoration-line-through">{{ currentAppointment.formattedDate }}</span>
+          <span class="text-decoration-line-through">{{ appointmentStore.currentAppointment.formattedDate }}</span>
         </div>
       </div>
 
-      <div v-else class="mt-8">
-        <div class="text-h5 d-flex flex-column my-4">
+      <div class="mt-8">
+        <div class="text-h6 d-flex flex-column my-8">
           <p class="font-weight-bold">Did you have an unexpected situation?</p>
           <p>You can change the appointment for when it suits you better</p>
         </div>
         <SlotCalendar
           :weekly-slots="weeklySlots"
-          :current-week-dates="currentWeekDates"
           :is-loading="isLoading"
-          @previous-week="goToPreviousWeek"
-          @next-week="goToNextWeek"
           @select-slot="handleSlotSelect"
+          @week-change="handleWeekChange"
         />
+      </div>
+
+      <div v-if="selectedSlot" class="bg-white mt-8">
+        <v-card variant="flat" class="mb-4 pa-4">
+          <v-card-title class="text-h6">Reschedule</v-card-title>
+          <v-card-text>
+            <p class="text-body-1 mb-10">
+              Click the button below to confirm
+            </p>
+            <v-btn
+              color="primary"
+              block
+              @click="confirmReschedule"
+              :loading="appointmentStore.isRescheduling"
+              :disabled="appointmentStore.isRescheduling"
+            >
+              {{ formatDateForDisplay(selectedSlot.start) }} at {{ formatTimeForDisplay(selectedSlot.start) }}
+            </v-btn>
+          </v-card-text>
+        </v-card>
       </div>
 
     </v-card-text>
@@ -52,50 +67,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { getWeeklySlots, bookSlot } from '@/services/appointmentService';
-import type { WeeklySlots } from '@/types/Slot';
-import type { BookingRequest } from '@/types/Booking';
-import {
-  formatDateForApi,
-  formatDateForDisplay,
-  formatTimeForDisplay,
-  getNextSevenDays
-} from '@/utils/dateUtils';
+/**
+ * AppointmentRescheduler Component
+ * 
+ * Main component for the appointment rescheduling feature.
+ * Allows users to view their current appointment and reschedule it.
+ */
+import { ref, onMounted } from 'vue';
+import { formatDateForApi, formatDateForDisplay, formatTimeForDisplay } from '@/utils/dateUtils';
 import SlotCalendar from './SlotCalendar.vue';
 import AppointmentInfo from './AppointmentInfo.vue';
-import { CURRENT_APPOINTMENT, CURRENT_PATIENT } from '@/config/mockData';
+import { useAppointmentStore } from '@/stores/appointmentStore';
+import type { Slot, WeeklySlots } from '@/types/Slot';
+import { getWeeklySlots } from '@/services/appointmentService';
 
-// INFO: Current appointment data (initial data as per requirements)
-const currentAppointment = ref(CURRENT_APPOINTMENT);
+const appointmentStore = useAppointmentStore();
 
-const isReschedulingSpinner = ref(false);
-const today = new Date();
-
-// Set current week start date to the Monday of the current week
-const mondayOfCurrentWeek = new Date(today);
-const dayOfWeek = today.getDay();
-const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // If Sunday (0), then it's 6 days from Monday, otherwise day - 1
-mondayOfCurrentWeek.setDate(today.getDate() - diff);
-
+// Local state
 const weeklySlots = ref<WeeklySlots[]>([]);
 const isLoading = ref(false);
-const isRescheduling = ref(false);
-const currentWeekStartDate = ref(mondayOfCurrentWeek);
 const errorMessage = ref('');
+const selectedSlot = ref<Slot | null>(null);
 
-const currentWeekDates = computed(() => {
-  return getNextSevenDays(currentWeekStartDate.value);
-});
+const clearError = () => {
+  errorMessage.value = '';
+  appointmentStore.clearError();
+}
 
-const loadWeeklySlots = async () => {
+// Handle slot selection
+const handleSlotSelect = (slot: Slot) => {
+  selectedSlot.value = slot;
+  clearError();
+}
+
+// Handle week change from calendar
+const handleWeekChange = async (date: Date) => {
+  await loadSlotsForDate(date);
+}
+
+// Load slots for a specific date
+const loadSlotsForDate = async (date: Date) => {
   isLoading.value = true;
   errorMessage.value = '';
   
   try {
-    const apiDate = formatDateForApi(currentWeekDates.value[0]);
-    console.log('Formatted date for API:', apiDate);
-    
+    const apiDate = formatDateForApi(date);
     weeklySlots.value = await getWeeklySlots(apiDate);
   } catch (error) {
     console.error('Failed to load slots:', error);
@@ -103,74 +119,31 @@ const loadWeeklySlots = async () => {
   } finally {
     isLoading.value = false;
   }
-};
+}
 
-const goToNextWeek = () => {
-  const newDate = new Date(currentWeekStartDate.value);
-  newDate.setDate(newDate.getDate() + 7);
-  currentWeekStartDate.value = newDate;
-  loadWeeklySlots();
-};
-
-const goToPreviousWeek = () => {
-  const todayDate = new Date();
-  const mondayOfToday = new Date(todayDate);
-  const dayOfWeek = todayDate.getDay();
-  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  mondayOfToday.setDate(todayDate.getDate() - diff);
-  
-  const newDate = new Date(currentWeekStartDate.value);
-  newDate.setDate(newDate.getDate() - 7);
-  
-  // Don't allow going to past weeks (before the current week's Monday)
-  if (newDate >= mondayOfToday) {
-    currentWeekStartDate.value = newDate;
-    loadWeeklySlots();
-  }
-};
-
-const handleSlotSelect = async (slot: { start: string; end: string }) => {
-  isRescheduling.value = true;
-  isReschedulingSpinner.value = true;
-  errorMessage.value = '';
+// Confirm and process the reschedule
+const confirmReschedule = async () => {
+  if (!selectedSlot.value) return;
   
   try {
-    const bookingData: BookingRequest = {
-      Start: slot.start,
-      End: slot.end,
-      Comments: '',
-      Patient: CURRENT_PATIENT // Mock data
-    };
+    const success = await appointmentStore.rescheduleAppointment(selectedSlot.value);
     
-    // Simulate API delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const response = await bookSlot(bookingData);
-    
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to reschedule appointment');
+    if (success) {
+      // Clear selected slot after successful reschedule
+      selectedSlot.value = null;
+    } else {
+      errorMessage.value = appointmentStore.errorMessage;
     }
-    
-    // Update current appointment with the new date
-    const newDate = new Date(slot.start);
-    currentAppointment.value = {
-      ...currentAppointment.value,
-      date: newDate,
-      formattedDate: `${formatDateForDisplay(slot.start)} at ${formatTimeForDisplay(slot.start)}`
-    };
-    
   } catch (error) {
-    console.error('Failed to reschedule appointment:', error);
-    errorMessage.value = error instanceof Error 
-      ? error.message 
-      : 'Failed to reschedule appointment. Please try again.';
-  } finally {
-    isRescheduling.value = false;
-    isReschedulingSpinner.value = false;
+    console.error('Error in confirmReschedule:', error);
+    errorMessage.value = 'An unexpected error occurred. Please try again.';
   }
-};
+}
 
-onMounted(() => {
-  loadWeeklySlots();
+// Initialize component
+onMounted(async () => {
+
+  const today = new Date();  // Load initial slots for current date
+  await loadSlotsForDate(today);
 });
 </script>
