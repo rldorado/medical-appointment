@@ -80,6 +80,10 @@ import AppointmentInfo from './AppointmentInfo.vue';
 import { useAppointmentStore } from '@/stores/appointmentStore';
 import type { Slot, WeeklySlots } from '@/types/Slot';
 import { getWeeklySlots } from '@/services/appointmentService';
+import { createLogger } from '@/utils/logger';
+import { handleError } from '@/utils/errorHandler';
+
+const logger = createLogger({ module: 'AppointmentRescheduler' });
 
 const appointmentStore = useAppointmentStore();
 
@@ -96,12 +100,14 @@ const clearError = () => {
 
 // Handle slot selection
 const handleSlotSelect = (slot: Slot) => {
+  logger.info('Slot selected', { start: slot.start, end: slot.end });
   selectedSlot.value = slot;
   clearError();
 }
 
 // Handle week change from calendar
 const handleWeekChange = async (date: Date) => {
+  logger.info('Week changed', { date: date.toISOString() });
   await loadSlotsForDate(date);
 }
 
@@ -111,11 +117,17 @@ const loadSlotsForDate = async (date: Date) => {
   errorMessage.value = '';
   
   try {
+    logger.info('Loading slots for date', { date: date.toISOString() });
     const apiDate = formatDateForApi(date);
     weeklySlots.value = await getWeeklySlots(apiDate);
+    logger.debug('Slots loaded successfully', { 
+      weekCount: weeklySlots.value.length,
+      firstWeekDate: weeklySlots.value[0]?.date 
+    });
   } catch (error) {
-    console.error('Failed to load slots:', error);
-    errorMessage.value = 'Failed to load available slots. Please try again.';
+    const userFriendlyMessage = handleError(error, 'loadSlotsForDate');
+    errorMessage.value = userFriendlyMessage;
+    logger.error('Failed to load slots', { message: userFriendlyMessage });
   } finally {
     isLoading.value = false;
   }
@@ -126,23 +138,32 @@ const confirmReschedule = async () => {
   if (!selectedSlot.value) return;
   
   try {
+    logger.info('Confirming reschedule', { 
+      slot: selectedSlot.value.start 
+    });
+    
     const success = await appointmentStore.rescheduleAppointment(selectedSlot.value);
     
     if (success) {
       // Clear selected slot after successful reschedule
       selectedSlot.value = null;
+      logger.info('Reschedule confirmed successfully');
     } else {
       errorMessage.value = appointmentStore.errorMessage;
+      logger.warn('Reschedule failed', { 
+        errorMessage: appointmentStore.errorMessage 
+      });
     }
   } catch (error) {
-    console.error('Error in confirmReschedule:', error);
-    errorMessage.value = 'An unexpected error occurred. Please try again.';
+    const userFriendlyMessage = handleError(error, 'confirmReschedule');
+    errorMessage.value = userFriendlyMessage;
+    logger.error('Reschedule failed', { message: userFriendlyMessage });
   }
 }
 
 // Initialize component
 onMounted(async () => {
-
+  logger.info('Component mounted');
   const today = new Date();  // Load initial slots for current date
   await loadSlotsForDate(today);
 });

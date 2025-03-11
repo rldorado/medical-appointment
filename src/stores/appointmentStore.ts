@@ -11,6 +11,10 @@ import type { BookingRequest } from '@/types/Booking';
 import { formatDateForDisplay, formatTimeForDisplay } from '@/utils/dateUtils';
 import { bookSlot } from '@/services/appointmentService';
 import { CURRENT_APPOINTMENT, CURRENT_PATIENT } from '@/config/mockData';
+import { createLogger } from '@/utils/logger';
+import { handleError } from '@/utils/errorHandler';
+
+const logger = createLogger({ module: 'AppointmentStore' });
 
 export const useAppointmentStore = defineStore('appointment', () => {
   // State
@@ -32,6 +36,11 @@ export const useAppointmentStore = defineStore('appointment', () => {
     errorMessage.value = '';
     
     try {
+      logger.info('Attempting to reschedule appointment', { 
+        start: slot.start, 
+        end: slot.end 
+      });
+      
       const bookingData: BookingRequest = {
         Start: slot.start,
         End: slot.end,
@@ -49,13 +58,12 @@ export const useAppointmentStore = defineStore('appointment', () => {
       }
       
       updateAppointment(slot);
+      logger.info('Appointment rescheduled successfully');
       
       return true;
     } catch (error) {
-      console.error('Failed to reschedule appointment:', error);
-      errorMessage.value = error instanceof Error 
-        ? error.message 
-        : 'Failed to reschedule appointment. Please try again.';
+      const userFriendlyMessage = handleError(error, 'rescheduleAppointment');
+      errorMessage.value = userFriendlyMessage;
       return false;
     } finally {
       isRescheduling.value = false;
@@ -70,6 +78,11 @@ export const useAppointmentStore = defineStore('appointment', () => {
       date: newDate,
       formattedDate: `${formatDateForDisplay(slot.start)} at ${formatTimeForDisplay(slot.start)}`
     };
+    
+    logger.debug('Updated appointment details', { 
+      date: newDate,
+      formattedDate: currentAppointment.value.formattedDate 
+    });
   }
 
   return {
@@ -82,4 +95,4 @@ export const useAppointmentStore = defineStore('appointment', () => {
     clearError,
     rescheduleAppointment
   };
-}); 
+});

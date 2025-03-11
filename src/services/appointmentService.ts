@@ -11,6 +11,14 @@ import {
   getNextSevenDays 
 } from "@/utils/dateUtils";
 import { API_CONFIG } from "@/config/api";
+import { createLogger } from "@/utils/logger";
+import { 
+  handleError, 
+  handleApiError, 
+  createNetworkError 
+} from "@/utils/errorHandler";
+
+const logger = createLogger({ module: 'AppointmentService', showTimestamp: true });
 
 /**
  * Group slots by date
@@ -43,24 +51,24 @@ const groupSlotsByDate = (slots: any[]): Record<string, Slot[]> => {
  */
 export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
   try {
-    console.log(`Fetching slots for date: ${date}`);
+    logger.info(`Fetching slots for date: ${date}`);
     const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.WEEKLY_SLOTS}${date}`;
-    console.log(`API URL: ${url}`);
+    logger.debug(`API URL: ${url}`);
     
-    const response = await fetch(url);
+    const response = await fetch(url).catch(error => {
+      throw createNetworkError('Failed to connect to the server', error);
+    });
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API error ${response.status}: ${errorText}`);
-      throw new Error(`API error ${response.status}: ${errorText}`);
+      await handleApiError(response, 'getWeeklySlots');
     }
     
     const data = await response.json();
-    console.log('API response:', data);
+    logger.debug('API response received', data);
     
     // Ensure data is properly formatted
     if (!Array.isArray(data)) {
-      console.warn('API response is not an array, converting to array format');
+      logger.warn('API response is not an array, converting to array format');
       // Convert single object to array
       const dataArray = [data];
       
@@ -111,8 +119,8 @@ export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
       };
     });
   } catch (error) {
-    console.error('Error fetching weekly slots:', error);
-    throw error;
+    handleError(error, 'getWeeklySlots');
+    throw error; // Re-throw for component-level handling
   }
 };
 
@@ -123,26 +131,27 @@ export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
  */
 export const bookSlot = async (bookingData: BookingRequest): Promise<BookingResponse> => {
   try {
-    console.log('Booking slot with data:', bookingData);
+    logger.info('Booking slot', { start: bookingData.Start, end: bookingData.End });
+    
     const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.BOOK_SLOT}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(bookingData),
+    }).catch(error => {
+      throw createNetworkError('Failed to connect to the server', error);
     });
     
     // Check if response is ok
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API error ${response.status}: ${errorText}`);
-      throw new Error(`API error ${response.status}: ${errorText}`);
+      await handleApiError(response, 'bookSlot');
     }
     
     // Check if response is empty
     const responseText = await response.text();
     if (!responseText || responseText.trim() === '') {
-      console.log('Empty response from server, assuming success');
+      logger.info('Empty response from server, assuming success');
       return {
         success: true,
         message: 'Appointment rescheduled successfully'
@@ -152,10 +161,10 @@ export const bookSlot = async (bookingData: BookingRequest): Promise<BookingResp
     // Try to parse JSON
     try {
       const data = JSON.parse(responseText);
-      console.log('Booking response:', data);
+      logger.debug('Booking response received', data);
       return data;
     } catch (parseError) {
-      console.error('Error parsing JSON response:', parseError);
+      logger.error('Error parsing JSON response', parseError);
       // Return a default success response since the HTTP status was OK
       return {
         success: true,
@@ -163,7 +172,7 @@ export const bookSlot = async (bookingData: BookingRequest): Promise<BookingResp
       };
     }
   } catch (error) {
-    console.error('Error booking slot:', error);
-    throw error;
+    handleError(error, 'bookSlot');
+    throw error; // Re-throw for component-level handling
   }
 };
