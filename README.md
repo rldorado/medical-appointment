@@ -1,82 +1,150 @@
-# Docplanner Technical Test
+# Medical Appointment Rescheduler
 
-Welcome onboard!
+A Vue 3 application that allows patients to reschedule their medical appointments with a simple and intuitive interface.
 
-As you may have already seen, we really like to experiment and iterate here at Docplanner and just now we’re dealing
-with a new amazing feature for our users: **reschedule an appointment!**
+![Design](./assets/ui-result.png)
 
-So your first task with us will be to develop a fast prototype for a small app that allows our patients to reschedule an
-existing appointment. This is the design:
+## Features
 
-![Basic design](./assets/ui-example.png)
+- View current appointment details (doctor name and date)
+- Browse available slots for the next seven days
+- Navigate between weeks to find suitable appointment times
+- Select and confirm a new appointment time
+- Real-time feedback with loading indicators and error messages
+- Responsive design for all device sizes
 
-<sup><i>You can see a preview of a working application with all the features at the end of the readme.</i></sup>
+## Technical Overview
 
-As you can see, when the users access the app they see basic data about the current appointment: the doctor and the
-date. As initial data, suppose you had an appointment with **Dr. Simeon Molas** on **Friday, May 21th at 10:30**.
+This application is built with modern web technologies and follows best practices for large-scale production applications:
 
-The available slots for the next seven days are shown, starting from today. Only a few slots are initially shown but
-there is a button to “See more hours” under them. Some of the slots may be **Taken**, so they’re not available to the
-patient to book.
+- **Framework**: Vue 3 with Composition API
+- **State Management**: Pinia
+- **UI Components**: Vuetify 3
+- **Type Safety**: TypeScript
+- **Build Tool**: Vite
+- **Testing**: Vitest and Vue Test Utils
 
-The user could explore future weeks, but not past weeks, by using the right and left arrows on the header of the
-calendar. Whenever he finds a slot he’d like to book, he just clicks on it and the appointment and confirm. If the
-reschedule is successful, the date of the appointment is updated. Since the user clicks the slot until he gets an
-answer, a loading spinner with crossed-out date to be changed will appear.
-
-In order to get and manipulate the data you’ll have to use our API.
-
-Basically the GET where you'll retrieve slots for a maximum of seven days:
-
-- https://draliatest.azurewebsites.net/api/availability/GetWeeklySlots/{yyyyMMdd}
-
-And the POST with an example of the request’s body used on the endpoint:
-
-- https://draliatest.azurewebsites.net/api/availability/BookSlot
+## Project Structure
 
 ```
+src/
+├── assets/           # Static assets like images and styles
+├── components/       # Vue components
+│   └── __tests__/    # Component tests
+├── config/           # Application configuration
+├── services/         # API service layer
+├── stores/           # Pinia stores for state management
+├── types/            # TypeScript type definitions
+└── utils/            # Utility functions and helpers
+    ├── logger.ts     # Logging utility
+    └── errorHandler.ts # Error handling utility
+```
+
+## Key Features Implementation
+
+### Appointment Rescheduling
+
+The application allows users to:
+1. View their current appointment
+2. Browse available slots by date
+3. Select a new appointment time
+4. Confirm the rescheduling
+5. Receive real-time feedback on the process
+
+### Logging System
+
+The application includes a robust logging system that:
+- Only logs in development mode
+- Provides different log levels (info, warn, error, debug)
+- Includes module names and timestamps for better traceability
+- Allows creating module-specific loggers
+
+### Error Handling
+
+A comprehensive error handling system that:
+- Categorizes errors (API, Network, Validation)
+- Provides user-friendly error messages
+- Centralizes error handling logic
+- Includes detailed error context for debugging
+
+## API Integration
+
+The application integrates with the following API endpoints:
+
+- **GET Weekly Slots**: `https://draliatest.azurewebsites.net/api/availability/GetWeeklySlots/{yyyyMMdd}`
+- **POST Book Slot**: `https://draliatest.azurewebsites.net/api/availability/BookSlot`
+
+### Booking Request Format
+
+```json
 {
-  "Start": Start timestamp (string "YYYY-MM-DD HH:mm:ss"),
-  "End": End timestamp (string "YYYY-MM-DD HH:mm:ss"),
-  "Comments": Additional instructions for the doctor (string),
-  "Patient" : {
-    "Name" : Patient Name (string),
-    "SecondName" : Patient SecondName (string),
-    "Email" : Patient Email (string),
-    "Phone" : Patient Phone (string)
+  "Start": "YYYY-MM-DD HH:mm:ss",
+  "End": "YYYY-MM-DD HH:mm:ss",
+  "Comments": "Additional instructions for the doctor",
+  "Patient": {
+    "Name": "Patient Name",
+    "SecondName": "Patient SecondName",
+    "Email": "Patient Email",
+    "Phone": "Patient Phone"
   }
 }
 ```
 
-## Notes
-In order to make it easier for you, we’ll provide a boilerplate you can start the project with. Feel free to use any
-library that it could fit to your solution. Also, boilerplate could be outdated, don't hesitate to update it or totally
-remove it.
+## Getting Started
 
-To start from boilerplate you can execute:
+### Prerequisites
 
+- Node.js (v16+)
+- Yarn or npm
+
+### Installation
+
+```bash
+# Install dependencies
+yarn install
+
+# Start development server
+yarn dev
+
+# Build for production
+yarn build
+
+# Run tests (unit tests)
+yarn test:unit
 ```
-yarn install && yarn serve 
-```
-On Linux or Mac Os
 
-Or alternatively 
+## Development Guidelines
 
-```
-yarn install ; yarn serve
-```
-If you are using Windows
+### Code Style
 
-## Our expectations
-* Keep in mind that this is a prototype, we don’t expect from you to get the best possible solution but the best you could
-do **in a few hours**, so your criteria is important. **The solution should work for every day of the week**.
-* Although it’s just a prototype, we’d like to see some structure on your code. Treat it more as a large-scale production
-application — show your best skills, so we can know you better.
-* We’ll look at how you use the framework/libraries, architecture, test coverage, readability, maintainability,
-performance, adherence to best coding practices. If you skip some of those, please provide comments, so we know what's
-your approach.
-* Animations on going forward, backward or on see more slots are not mandatory.
+- Use TypeScript for all new code
+- Follow the Vue 3 Composition API patterns
+- Use Pinia for state management
+- Document all functions and components with JSDoc comments
+
+### Error Handling
+
+- Use the centralized error handling utility
+- Categorize errors appropriately
+- Provide user-friendly error messages
+- Log detailed error information for debugging
+
+### Logging
+
+- Use the logging utility for all console output
+- Choose the appropriate log level (info, warn, error, debug)
+- Include relevant context in log messages
+- Only log in development mode
 
 ## Preview
 
-![](./assets/video.gif)
+![](./assets/video-result.gif)
+
+## Future Improvements
+
+- Enhance animations
+- Improve error handling
+- Increase test coverage
+- Accessibility improvements
+- Offline support
+- Analytics integration
