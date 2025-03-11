@@ -11,17 +11,14 @@ import {
 } from '@/utils/dateUtils';
 
 export function useSlotCalendar() {
-  // Initialize with default values
   const currentWeekStartDate = ref(getMondayOfWeek(new Date()));
   const showAllSlots = ref(false);
   const selectedSlot = ref<Slot | null>(null);
 
-  // Computed property
   const currentWeekDates = computed(() => {
     return getNextSevenDays(currentWeekStartDate.value);
   });
 
-  // Methods
   const goToNextWeek = (): Date => {
     const newDate = new Date(currentWeekStartDate.value);
     newDate.setDate(newDate.getDate() + 7);
@@ -36,7 +33,12 @@ export function useSlotCalendar() {
     const newDate = new Date(currentWeekStartDate.value);
     newDate.setDate(newDate.getDate() - 7);
     
-    if (newDate >= mondayOfToday) {
+    // Allow going back one week from the current week, even if that previous week contains today
+    // But don't allow going beyond today's week (earlier than one week before today's Monday)
+    const oneWeekBeforeTodaysMonday = new Date(mondayOfToday);
+    oneWeekBeforeTodaysMonday.setDate(oneWeekBeforeTodaysMonday.getDate() - 7);
+    
+    if (newDate >= oneWeekBeforeTodaysMonday) {
       currentWeekStartDate.value = newDate;
       return newDate;
     }
@@ -73,4 +75,4 @@ export function useSlotCalendar() {
     handleSlotSelect,
     clearSelectedSlot
   };
-} 
+}
