@@ -61,7 +61,31 @@ export const getWeeklySlots = async (date: string): Promise<WeeklySlots[]> => {
     // Ensure data is properly formatted
     if (!Array.isArray(data)) {
       console.warn('API response is not an array, converting to array format');
-      return [data];
+      // Convert single object to array
+      const dataArray = [data];
+      
+      // Group slots by date
+      const groupedByDate = groupSlotsByDate(dataArray);
+      
+      // Generate slots for all 7 days of the week
+      // Parse the date string to a Date object
+      const startDate = new Date(
+        parseInt(date.substring(0, 4)),
+        parseInt(date.substring(4, 6)) - 1,
+        parseInt(date.substring(6, 8))
+      );
+      
+      // Get the next 7 days
+      const weekDates = getNextSevenDays(startDate);
+      
+      // Map dates to WeeklySlots format
+      return weekDates.map(date => {
+        const dateStr = formatDateToYYYYMMDD(date);
+        return {
+          date: dateStr,
+          slots: groupedByDate[dateStr] || []
+        };
+      });
     }
     
     // Group slots by date
