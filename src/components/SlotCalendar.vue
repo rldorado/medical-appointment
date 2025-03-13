@@ -292,7 +292,7 @@ const endTransition = () => {
 
 .week-container {
   overflow: hidden;
-  min-height: 200px;
+  min-height: 500px;
 }
 
 /* Week transition animations */

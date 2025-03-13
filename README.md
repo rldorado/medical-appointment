@@ -138,7 +138,7 @@ yarn test:unit
 
 ## Preview
 
-![](./assets/video-result.gif)
+![](./assets/videoresult.gif)
 
 ## Future Improvements
 
